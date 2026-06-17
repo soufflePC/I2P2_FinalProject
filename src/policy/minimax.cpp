@@ -35,7 +35,7 @@ int MiniMax::eval_ctx(
     // return the score for a winning terminal state
     // Hint: prefer faster wins by using ply.
     if (state->game_state == WIN){
-        return M_MAX + ply;
+        return P_MAX - ply;
     }
 
     if(state->game_state == DRAW){
@@ -65,15 +65,13 @@ int MiniMax::eval_ctx(
         // create the child state after applying action
         State *next = state->next_state(action);
 
-        bool same = next->same_player_as_parent();
-
         // [Hackathon TODO 3-3]
         // search the child one level deeper
         int score = eval_ctx(next, depth - 1, history, ply + 1, ctx, p);
 
         // [Hackathon TODO 3-4]
         // convert raw to the current player's perspective.
-        if (!same)
+        if (!(next->same_player_as_parent()))
             score = -score;
 
         delete next;
@@ -119,6 +117,8 @@ SearchResult MiniMax::search(
          * search this move like TODO 3, but starting from the root */
         State *next = state->next_state(action);
         int score = eval_ctx(next, depth - 1, history, 1, ctx, p);
+        if (!(next->same_player_as_parent()))
+            score = -score;
         delete next;
 
             if(score > best_score){
