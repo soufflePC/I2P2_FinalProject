@@ -2,7 +2,7 @@
 #include <utility>
 
 #include "state.hpp"
-#include "random.hpp"
+#include "114006226_submission.hpp"
 #include "registry.hpp"
 
 constexpr int QUIESCENCE_MAX_PLY = 6;
@@ -12,6 +12,14 @@ static bool is_capture(State *state, const Move& move){
     int to_row = move.second.first;
     int to_col = move.second.second;
     return state->piece_at(1 - state->player, to_row, to_col) > 0;
+}
+
+static bool is_promotion(State *state, const Move& move){
+    int from_row = move.first.first;
+    int from_col = move.first.second;
+    int to_row = move.second.first;
+    int attacker = state->piece_at(state->player, from_row, from_col);
+    return attacker == 1 && (to_row == 0 || to_row == state->board_h() - 1);
 }
 
 static int move_score(State *state, const Move& move){
@@ -32,17 +40,17 @@ static int move_score(State *state, const Move& move){
         );
     }
     if(attacker == 1 && (to_row == 0 || to_row == state->board_h() - 1)){
-        score += 800;
+        score += 2500;
     }
     return score;
 }
 
-static std::vector<Move> ordered_moves(State *state, bool captures_only = false){
+static std::vector<Move> ordered_moves(State *state, bool tactical_only = false){
     std::vector<Move> moves;
     moves.reserve(state->legal_actions.size());
 
     for(const auto& move : state->legal_actions){
-        if(!captures_only || is_capture(state, move)){
+        if(!tactical_only || is_capture(state, move) || is_promotion(state, move)){
             moves.push_back(move);
         }
     }
@@ -60,7 +68,7 @@ int quiescence_after_push(
     int ply,
     int qply,
     SearchContext& ctx,
-    const RParams& p,
+    const MMParams& p,
     int alpha,
     int beta
 );
@@ -71,7 +79,7 @@ int eval_impl(
     GameHistory& history,
     int ply,
     SearchContext& ctx,
-    const RParams& p,
+    const MMParams& p,
     int alpha,
     int beta
 ){
@@ -157,7 +165,7 @@ int quiescence_after_push(
     int ply,
     int qply,
     SearchContext& ctx,
-    const RParams& p,
+    const MMParams& p,
     int alpha,
     int beta
 ){
@@ -225,13 +233,13 @@ int quiescence_after_push(
     return alpha;
 }
 
-int Random::eval_ctx(
+int MiniMax::eval_ctx(
     State *state,
     int depth,
     GameHistory& history,
     int ply,
     SearchContext& ctx,
-    const RParams& p
+    const MMParams& p
 ){
     return eval_impl(state, depth, history, ply, ctx, p, M_MAX, P_MAX);
 }
@@ -242,14 +250,14 @@ int Random::eval_ctx(
  *
  * Iterate ordered legal moves, call eval_ctx, return SearchResult.
  *============================================================*/
-SearchResult Random::search(
+SearchResult MiniMax::search(
     State *state,
     int depth,
     GameHistory& history,
     SearchContext& ctx
 ){
     ctx.reset();
-    RParams p = RParams::from_map(ctx.params);
+    MMParams p = MMParams::from_map(ctx.params);
     SearchResult result;
     result.depth = depth;
 
@@ -319,7 +327,7 @@ SearchResult Random::search(
 /*============================================================
  *  - default_params / param_defs
  *============================================================*/
-ParamMap Random::default_params(){
+ParamMap MiniMax::default_params(){
     return {
         {"UseKPEval", "true"},
         {"UseEvalMobility", "true"},
@@ -327,7 +335,7 @@ ParamMap Random::default_params(){
     };
 }
 
-std::vector<ParamDef> Random::param_defs(){
+std::vector<ParamDef> MiniMax::param_defs(){
     return {
         {"UseKPEval", ParamDef::CHECK, "true"},
         {"UseEvalMobility", ParamDef::CHECK, "true"},

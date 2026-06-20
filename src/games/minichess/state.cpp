@@ -23,8 +23,8 @@ static const int simple_material[7] = {0, 2, 6, 7, 8, 20, 100};
 // Piece-Square Tables (white perspective, mirror for black)
 static const int pst[6][BOARD_H][BOARD_W] = {
     // Pawn
-    {{ 0,  0,  0,  0,  0}, {15, 15, 15, 15, 15}, { 4,  6, 10,  6,  4},
-     { 2,  4,  6,  4,  2}, { 0,  2,  2,  2,  0}, { 0,  0,  0,  0,  0}},
+    {{ 0,  0,  0,  0,  0}, {10, 10, 10, 10, 10}, { 3,  4,  6,  4,  3},
+     { 1,  2,  3,  2,  1}, { 0,  1,  1,  1,  0}, { 0,  0,  0,  0,  0}},
     // Rook
     {{ 2,  2,  2,  2,  2}, { 4,  4,  4,  4,  4}, { 0,  0,  2,  0,  0},
      { 0,  0,  2,  0,  0}, { 0,  0,  2,  0,  0}, { 0,  0,  0,  0,  0}},
@@ -55,6 +55,82 @@ static int king_tropism(
         return tropism_w[piece_type] * (3 - dist);
     }
     return 0;
+}
+
+static bool on_board(int r, int c){
+    return r >= 0 && r < BOARD_H && c >= 0 && c < BOARD_W;
+}
+
+static bool attacked_by(const Board& board, int attacker, int row, int col){
+    int pawn_row = attacker ? row - 1 : row + 1;
+    if(on_board(pawn_row, col - 1) && board.board[attacker][pawn_row][col - 1] == 1){
+        return true;
+    }
+    if(on_board(pawn_row, col + 1) && board.board[attacker][pawn_row][col + 1] == 1){
+        return true;
+    }
+
+    static const int knight_moves[8][2] = {
+        {2, 1}, {1, 2}, {-1, 2}, {-2, 1},
+        {-2, -1}, {-1, -2}, {1, -2}, {2, -1}
+    };
+    for(const auto& move : knight_moves){
+        int r = row + move[0], c = col + move[1];
+        if(on_board(r, c) && board.board[attacker][r][c] == 3){
+            return true;
+        }
+    }
+
+    static const int king_moves[8][2] = {
+        {1, 0}, {0, 1}, {-1, 0}, {0, -1},
+        {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+    };
+    for(const auto& move : king_moves){
+        int r = row + move[0], c = col + move[1];
+        if(on_board(r, c) && board.board[attacker][r][c] == 6){
+            return true;
+        }
+    }
+
+    static const int slider_moves[8][2] = {
+        {0, 1}, {0, -1}, {1, 0}, {-1, 0},
+        {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+    };
+    for(int d = 0; d < 8; d++){
+        int r = row + slider_moves[d][0];
+        int c = col + slider_moves[d][1];
+        while(on_board(r, c)){
+            if(board.board[1 - attacker][r][c]){
+                break;
+            }
+
+            int piece = board.board[attacker][r][c];
+            if(piece){
+                bool straight = d < 4;
+                if(piece == 5 || (straight && piece == 2) || (!straight && piece == 4)){
+                    return true;
+                }
+                break;
+            }
+
+            r += slider_moves[d][0];
+            c += slider_moves[d][1];
+        }
+    }
+
+    return false;
+}
+
+static int loose_piece_penalty(const Board& board, int owner, int row, int col, int piece){
+    if(!attacked_by(board, 1 - owner, row, col)){
+        return 0;
+    }
+
+    int penalty = kp_material[piece] / 4;
+    if(!attacked_by(board, owner, row, col)){
+        penalty += kp_material[piece] / 3;
+    }
+    return penalty;
 }
 
 
@@ -120,6 +196,7 @@ int State::evaluate(
                         self_score += pst[self - 1][i][j];
 
                     self_score += king_tropism(self, i, j, oppn_kr, oppn_kc);
+                    self_score -= loose_piece_penalty(this->board, this->player, i, j, self);
                 }
                 if (oppn){
                     oppn_score += kp_material[oppn];
@@ -129,6 +206,7 @@ int State::evaluate(
                         oppn_score += pst[oppn - 1][BOARD_H - 1 - i][j];
 
                     oppn_score += king_tropism(oppn, i, j, self_kr, self_kc);
+                    oppn_score -= loose_piece_penalty(this->board, 1 - this->player, i, j, oppn);
                 }
             }
         }

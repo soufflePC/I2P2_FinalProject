@@ -13,8 +13,8 @@
 #include <vector>
 #include "search_types.hpp"
 #include "game_history.hpp"
-#include "minimax.hpp"
 #include "random.hpp"
+#include "114006226_submission.hpp"
 
 struct AlgoEntry {
     std::string name;
