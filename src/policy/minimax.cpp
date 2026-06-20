@@ -14,7 +14,9 @@ int MiniMax::eval_ctx(
     GameHistory& history,
     int ply,
     SearchContext& ctx,
-    const MMParams& p
+    const MMParams& p,
+    int alpha,
+    int beta
 ){
     ctx.nodes++;
     if(ply > ctx.seldepth){
@@ -58,7 +60,6 @@ int MiniMax::eval_ctx(
     }
 
     /* === Negamax loop === */
-    int best_score = M_MAX;
 
     for(auto& action : state->legal_actions){
         // [ Hackathon TODO 3-2 ]
@@ -67,7 +68,7 @@ int MiniMax::eval_ctx(
 
         // [Hackathon TODO 3-3]
         // search the child one level deeper
-        int score = eval_ctx(next, depth - 1, history, ply + 1, ctx, p);
+        int score = eval_ctx(next, depth - 1, history, ply + 1, ctx, p, -beta, -alpha);
 
         // [Hackathon TODO 3-4]
         // convert raw to the current player's perspective.
@@ -78,12 +79,15 @@ int MiniMax::eval_ctx(
 
         // [ Hackathon TODO 3-5 ]
         // update best_score if this child is better.
-        if (score > best_score)
-            best_score = score;
+        if (score > alpha)
+            alpha = score;
+        
+        if (alpha >= beta)
+            break;
     }
 
     history.pop(state->hash());
-    return best_score;
+    return alpha;
 }
 
 
@@ -116,7 +120,7 @@ SearchResult MiniMax::search(
         /* [ Hackathon TODO 4-1 ]
          * search this move like TODO 3, but starting from the root */
         State *next = state->next_state(action);
-        int score = eval_ctx(next, depth - 1, history, 1, ctx, p);
+        int score = eval_ctx(next, depth - 1, history, 1, ctx, p, M_MAX, P_MAX);
         if (!(next->same_player_as_parent()))
             score = -score;
         delete next;
